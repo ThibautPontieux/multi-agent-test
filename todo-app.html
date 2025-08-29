@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Todo Application</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2rem;
+        }
+        
+        .input-section {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        
+        #todoInput {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        #todoInput:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        #addBtn {
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+        
+        #addBtn:hover {
+            background: #5a67d8;
+        }
+        
+        #todoList {
+            list-style: none;
+        }
+        
+        .todo-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            background: #f8f9fa;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+        
+        .todo-item:hover {
+            background: #e9ecef;
+        }
+        
+        .todo-item.completed {
+            text-decoration: line-through;
+            opacity: 0.6;
+            background: #d4edda;
+        }
+        
+        .todo-text {
+            flex: 1;
+            margin-left: 10px;
+            font-size: 16px;
+        }
+        
+        .todo-checkbox {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+        
+        .delete-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .delete-btn:hover {
+            background: #c82333;
+        }
+        
+        .stats {
+            text-align: center;
+            margin-top: 20px;
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>My Todo App</h1>
+        
+        <div class="input-section">
+            <input type="text" id="todoInput" placeholder="Add a new todo...">
+            <button id="addBtn">Add Todo</button>
+        </div>
+        
+        <ul id="todoList"></ul>
+        
+        <div class="stats" id="stats"></div>
+    </div>
+    
+    <script>
+        class TodoApp {
+            constructor() {
+                this.todos = [];
+                this.todoInput = document.getElementById('todoInput');
+                this.addBtn = document.getElementById('addBtn');
+                this.todoList = document.getElementById('todoList');
+                this.stats = document.getElementById('stats');
+                
+                this.init();
+            }
+            
+            init() {
+                this.addBtn.addEventListener('click', () => this.addTodo());
+                this.todoInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.addTodo();
+                });
+                this.updateStats();
+            }
+            
+            addTodo() {
+                const text = this.todoInput.value.trim();
+                if (!text) return;
+                
+                const todo = {
+                    id: Date.now(),
+                    text: text,
+                    completed: false,
+                    created: new Date().toLocaleDateString()
+                };
+                
+                this.todos.push(todo);
+                this.todoInput.value = '';
+                this.renderTodos();
+                this.updateStats();
+            }
+            
+            toggleTodo(id) {
+                this.todos = this.todos.map(todo =>
+                    todo.id === id ? { ...todo, completed: !todo.completed } : todo
+                );
+                this.renderTodos();
+                this.updateStats();
+            }
+            
+            deleteTodo(id) {
+                this.todos = this.todos.filter(todo => todo.id !== id);
+                this.renderTodos();
+                this.updateStats();
+            }
+            
+            updateStats() {
+                const total = this.todos.length;
+                const completed = this.todos.filter(todo => todo.completed).length;
+                const remaining = total - completed;
+                
+                this.stats.textContent = `${total} total • ${completed} completed • ${remaining} remaining`;
+            }
+            
+            renderTodos() {
+                this.todoList.innerHTML = '';
+                
+                this.todos.forEach(todo => {
+                    const li = document.createElement('li');
+                    li.className = `todo-item ${todo.completed ? 'completed' : ''}`;
+                    
+                    li.innerHTML = `
+                        <input type="checkbox" class="todo-checkbox" ${todo.completed ? 'checked' : ''} 
+                               onchange="app.toggleTodo(${todo.id})">
+                        <span class="todo-text">${todo.text}</span>
+                        <button class="delete-btn" onclick="app.deleteTodo(${todo.id})">Delete</button>
+                    `;
+                    
+                    this.todoList.appendChild(li);
+                });
+            }
+        }
+        
+        // Global app instance
+        const app = new TodoApp();
+    </script>
+</body>
+</html>

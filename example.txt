@@ -1,0 +1,3 @@
+Hello! This is a test file created in the workspace.
+
+This demonstrates that I can create files with any content you need.
