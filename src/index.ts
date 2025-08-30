@@ -22,7 +22,7 @@ import fetch from 'node-fetch';
 
 // Import services
 import { logService } from './services/LogService.js';
-import { taskService } from './services/TaskService.js';
+import { taskService, Task } from './services/TaskService.js';
 import { workflowService } from './services/WorkflowService.js';
 import { monitoringService } from './services/MonitoringService.js';
 import { GitHandlers } from './handlers/GitHandlers.js';
@@ -44,6 +44,20 @@ interface ToolArgs {
   [key: string]: any;
 }
 
+// Type for valid agent names
+type AgentType = 'designer' | 'developer' | 'qa' | 'orchestrator';
+
+// Type for task creation arguments
+interface CreateTaskArgs extends ToolArgs {
+  from: AgentType;
+  to: AgentType;
+  type: Task['type'];
+  title: string;
+  description: string;
+  data?: any;
+  priority?: Task['priority'];
+}
+
 // GitHub PR response type
 interface GitHubPR {
   html_url: string;
@@ -53,6 +67,13 @@ interface GitHubPR {
 // GitHub API error type  
 interface GitHubError {
   message?: string;
+}
+
+/**
+ * Validates if a string is a valid agent type
+ */
+function isValidAgentType(agent: string): agent is AgentType {
+  return ['designer', 'developer', 'qa', 'orchestrator'].includes(agent);
 }
 
 /**
@@ -418,7 +439,7 @@ class MultiAgentMCPServer {
         switch (name) {
           // Task Management
           case 'create_task':
-            return this.handleCreateTask(toolArgs);
+            return this.handleCreateTask(toolArgs as CreateTaskArgs);
           case 'get_my_tasks':
             return this.handleGetMyTasks(toolArgs);
           case 'update_task_status':
@@ -487,8 +508,16 @@ class MultiAgentMCPServer {
   }
 
   // Task Management Handlers
-  private async handleCreateTask(args: ToolArgs) {
-    const task = taskService.createTask(args);
+  private async handleCreateTask(args: CreateTaskArgs) {
+    const task = taskService.createTask({
+      from: args.from,
+      to: args.to,
+      type: args.type,
+      title: args.title,
+      description: args.description,
+      data: args.data,
+      priority: args.priority || 'medium'
+    });
     return {
       content: [
         {
@@ -835,9 +864,21 @@ class MultiAgentMCPServer {
 
   // Monitoring and Communication Handlers
   private async handleTriggerAgent(args: ToolArgs) {
+    // Validate agent types
+    const fromAgent = args.agent;
+    const toAgent = args.targetAgent;
+
+    if (!fromAgent || !isValidAgentType(fromAgent)) {
+      throw new McpError(ErrorCode.InvalidRequest, 'Invalid source agent type');
+    }
+
+    if (!toAgent || !isValidAgentType(toAgent)) {
+      throw new McpError(ErrorCode.InvalidRequest, 'Invalid target agent type');
+    }
+
     const task = taskService.createTask({
-      from: args.agent!,
-      to: args.targetAgent,
+      from: fromAgent,
+      to: toAgent,
       type: 'workflow_trigger',
       title: '🔔 Agent Activation',
       description: args.message,
