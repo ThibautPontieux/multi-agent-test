@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Multi-Agent Monitoring - Live</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f172a;
+            color: #f1f5f9;
+            overflow-x: hidden;
+        }
+        
+        .connection-status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .connection-status.connected {
+            background: #059669;
+            color: white;
+        }
+        
+        .connection-status.disconnected {
+            background: #dc2626;
+            color: white;
+        }
+        
+        .connection-status.connecting {
+            background: #d97706;
+            color: white;
+        }
+        
+        .connection-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse 2s infinite;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            height: 100vh;
+        }
+        
+        .sidebar {
+            background: #1e293b;
+            border-right: 1px solid #334155;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .main-content {
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #334155;
+        }
+        
+        .status-grid {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .status-active { background: #059669; }
+        .status-waiting { background: #d97706; }
+        .status-idle { background: #64748b; }
+        .status-error { background: #dc2626; }
+        
+        .workflow-section {
+            background: #1e293b;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .workflow-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #334155;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #06b6d4);
+            transition: width 0.5s ease;
+        }
+        
+        .agent-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .agent-card {
+            background: #334155;
+            border-radius: 6px;
+            padding: 15px;
+            border-left: 4px solid #64748b;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .agent-card.active {
+            border-left-color: #10b981;
+            background: #1a3d32;
+        }
+        
+        .agent-card.waiting {
+            border-left-color: #f59e0b;
+            background: #3d2e1a;
+        }
+        
+        .agent-card.idle {
+            border-left-color: #64748b;
+            background: #334155;
+        }
+        
+        .agent-name {
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .metric-card {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            transition: transform 0.2s ease;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-2px);
+        }
+        
+        .metric-value {
+            font-size: 2em;
+            font-weight: 700;
+            color: #3b82f6;
+            margin-bottom: 5px;
+        }
+        
+        .metric-label {
+            color: #94a3b8;
+            font-size: 0.9em;
+        }
+        
+        .metric-trend {
+            font-size: 0.8em;
+            margin-top: 8px;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        
+        .trend-up {
+            background: #10b981;
+            color: white;
+        }
+        
+        .trend-down {
+            background: #dc2626;
+            color: white;
+        }
+        
+        .trend-stable {
+            background: #64748b;
+            color: white;
+        }
+        
+        .alert-banner {
+            background: linear-gradient(45deg, #dc2626, #ef4444);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            animation: slideIn 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .alert-close {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 1.2em;
+        }
+        
+        .nav-item {
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+        
+        .nav-item:hover {
+            background: #334155;
+        }
+        
+        .nav-item.active {
+            background: #3b82f6;
+        }
+        
+        .system-info {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #334155;
+        }
+        
+        .system-info h4 {
+            margin-bottom: 15px;
+            color: #94a3b8;
+        }
+        
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.9em;
+        }
+        
+        .recommendations-panel {
+            background: #1e293b;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .recommendation-item {
+            background: #334155;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #94a3b8;
+        }
+        
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #334155;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .no-workflows {
+            text-align: center;
+            padding: 40px 20px;
+            color: #94a3b8;
+            background: #1e293b;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="connection-status" id="connectionStatus">
+        <div class="connection-dot"></div>
+        <span id="connectionText">Connexion...</span>
+    </div>
+    
+    <div class="dashboard">
+        <div class="sidebar">
+            <h2 style="margin-bottom: 30px; color: #3b82f6;">Multi-Agent Live</h2>
+            
+            <div class="nav-item active" onclick="showView('overview')">
+                <div>Vue d'Ensemble</div>
+                <div style="font-size: 0.8em; color: #94a3b8;">Workflows actifs</div>
+            </div>
+            
+            <div class="nav-item" onclick="showView('agents')">
+                <div>États Agents</div>
+                <div style="font-size: 0.8em; color: #94a3b8;">Détails par agent</div>
+            </div>
+            
+            <div class="nav-item" onclick="showView('metrics')">
+                <div>Métriques</div>
+                <div style="font-size: 0.8em; color: #94a3b8;">Performance & coûts</div>
+            </div>
+            
+            <div class="system-info">
+                <h4>Informations Système</h4>
+                <div class="info-item">
+                    <span>Uptime:</span>
+                    <span id="systemUptime">-</span>
+                </div>
+                <div class="info-item">
+                    <span>Clients connectés:</span>
+                    <span id="connectedClients">-</span>
+                </div>
+                <div class="info-item">
+                    <span>Dernière MAJ:</span>
+                    <span id="lastUpdate">-</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div id="loading" class="loading">
+                <div class="loading-spinner"></div>
+                <div>Connexion au serveur MCP...</div>
+            </div>
+            
+            <div id="overview-view" style="display: none;">
+                <div class="header">
+                    <h1>Dashboard Multi-Agent</h1>
+                    <div class="status-grid" id="statusGrid">
+                        <!-- Status indicators populated by JS -->
+                    </div>
+                </div>
+                
+                <div id="alertsContainer">
+                    <!-- Alerts populated by JS -->
+                </div>
+                
+                <div id="workflowsContainer">
+                    <!-- Workflows populated by JS -->
+                </div>
+                
+                <div class="recommendations-panel">
+                    <h3 style="margin-bottom: 15px;">Recommandations</h3>
+                    <div id="recommendationsContainer">
+                        <!-- Recommendations populated by JS -->
+                    </div>
+                </div>
+            </div>
+            
+            <div id="agents-view" style="display: none;">
+                <div class="header">
+                    <h1>États des Agents</h1>
+                </div>
+                
+                <div id="agentsContainer">
+                    <!-- Agents details populated by JS -->
+                </div>
+            </div>
+            
+            <div id="metrics-view" style="display: none;">
+                <div class="header">
+                    <h1>Métriques de Performance</h1>
+                    <div style="font-size: 0.9em; color: #94a3b8;">Temps réel</div>
+                </div>
+                
+                <div class="metrics-grid" id="metricsGrid">
+                    <!-- Metrics populated by JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        class MultiAgentDashboard {
+            constructor() {
+                this.ws = null;
+                this.currentView = 'overview';
+                this.data = {
+                    activeWorkflows: [],
+                    agentStates: [],
+                    pendingTasks: [],
+                    metrics: null,
+                    systemInfo: {}
+                };
+                this.alerts = [];
+                
+                this.connect();
+                this.setupEventListeners();
+            }
+            
+            connect() {
+                try {
+                    this.updateConnectionStatus('connecting');
+                    this.ws = new WebSocket('ws://localhost:8080');
+                    
+                    this.ws.onopen = () => {
+                        console.log('Connected to MCP server');
+                        this.updateConnectionStatus('connected');
+                        this.requestCurrentState();
+                    };
+                    
+                    this.ws.onmessage = (event) => {
+                        try {
+                            const message = JSON.parse(event.data);
+                            this.handleMessage(message);
+                        } catch (error) {
+                            console.error('Error parsing message:', error);
+                        }
+                    };
+                    
+                    this.ws.onclose = () => {
+                        console.log('Disconnected from MCP server');
+                        this.updateConnectionStatus('disconnected');
+                        
+                        // Tentative de reconnexion après 5 secondes
+                        setTimeout(() => {
+                            if (this.ws.readyState === WebSocket.CLOSED) {
+                                this.connect();
+                            }
+                        }, 5000);
+                    };
+                    
+                    this.ws.onerror = (error) => {
+                        console.error('WebSocket error:', error);
+                        this.updateConnectionStatus('disconnected');
+                    };
+                    
+                } catch (error) {
+                    console.error('Failed to connect:', error);
+                    this.updateConnectionStatus('disconnected');
+                }
+            }
+            
+            updateConnectionStatus(status) {
+                const statusElement = document.getElementById('connectionStatus');
+                const textElement = document.getElementById('connectionText');
+                
+                statusElement.className = `connection-status ${status}`;
+                
+                switch (status) {
+                    case 'connected':
+                        textElement.textContent = 'Connecté';
+                        break;
+                    case 'connecting':
+                        textElement.textContent = 'Connexion...';
+                        break;
+                    case 'disconnected':
+                        textElement.textContent = 'Déconnecté';
+                        break;
+                }
+            }
+            
+            requestCurrentState() {
+                if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                    this.ws.send(JSON.stringify({
+                        type: 'get_current_state'
+                    }));
+                }
+            }
+            
+            handleMessage(message) {
+                console.log('Received message:', message.type);
+                
+                switch (message.type) {
+                    case 'initial_state':
+                    case 'current_state':
+                        this.data = message.data;
+                        this.hideLoading();
+                        this.updateDisplay();
+                        break;
+                        
+                    case 'workflow_started':
+                        this.handleWorkflowStarted(message.data);
+                        break;
+                        
+                    case 'task_status_changed':
+                        this.handleTaskStatusChanged(message.data);
+                        break;
+                        
+                    case 'agent_status_changed':
+                        this.handleAgentStatusChanged(message.data);
+                        break;
+                        
+                    case 'metrics_update':
+                        this.data.metrics = message.data;
+                        this.updateMetricsDisplay();
+                        this.checkAlerts();
+                        break;
+                        
+                    case 'workflow_completed':
+                        this.handleWorkflowCompleted(message.data);
+                        break;
+                }
+                
+                // Mettre à jour le timestamp de dernière MAJ
+                document.getElementById('lastUpdate').textContent = 
+                    new Date().toLocaleTimeString();
+            }
+            
+            hideLoading() {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('overview-view').style.display = 'block';
+            }
+            
+            updateDisplay() {
+                this.updateStatusGrid();
+                this.updateWorkflowsDisplay();
+                this.updateAgentsDisplay();
+                this.updateMetricsDisplay();
+                this.updateSystemInfo();
+                this.updateRecommendations();
+            }
+            
+            updateStatusGrid() {
+                const container = document.getElementById('statusGrid');
+                if (!container) return;
+                
+                const activeCount = this.data.activeWorkflows?.length || 0;
+                const waitingCount = this.data.agentStates?.filter(a => a.status === 'idle').length || 0;
+                const errorCount = 0; // À implémenter selon vos besoins
+                
+                container.innerHTML = `
+                    <span class="status-indicator status-active">● ${activeCount} Actifs</span>
+                    <span class="status-indicator status-waiting">● ${waitingCount} En attente</span>
+                    <span class="status-indicator status-idle">● ${errorCount} Erreurs</span>
+                `;
+            }
+            
+            updateWorkflowsDisplay() {
+                const container = document.getElementById('workflowsContainer');
+                if (!container) return;
+                
+                if (!this.data.activeWorkflows || this.data.activeWorkflows.length === 0) {
+                    container.innerHTML = `
+                        <div class="no-workflows">
+                            <h3>Aucun workflow actif</h3>
+                            <p>Les workflows apparaîtront ici dès leur démarrage</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = this.data.activeWorkflows.map(workflow => `
+                    <div class="workflow-section">
+                        <div class="workflow-header">
+                            <div>
+                                <h3>${workflow.name || workflow.id}</h3>
+                                <p style="color: #94a3b8;">${workflow.description || 'Workflow en cours'}</p>
+                                <p style="color: #94a3b8; font-size: 0.9em;">Démarré: ${workflow.duration || 'N/A'}</p>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 1.5em; color: #3b82f6;">${workflow.progress || 0}%</div>
+                                <div style="color: #94a3b8;">Étape ${(workflow.currentStep || 0) + 1}/${workflow.totalSteps || 1}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${workflow.progress || 0}%"></div>
+                        </div>
+                        
+                        <div style="margin-top: 15px;">
+                            <strong>Agent actuel:</strong> ${workflow.currentAgent || 'Unknown'}
+                        </div>
+                    </div>
+                `).join('');
+            }
+            
+            updateAgentsDisplay() {
+                const container = document.getElementById('agentsContainer');
+                if (!container) return;
+                
+                if (!this.data.agentStates || this.data.agentStates.length === 0) {
+                    container.innerHTML = '<div class="loading">Aucun agent détecté</div>';
+                    return;
+                }
+                
+                container.innerHTML = `
+                    <div class="agent-grid">
+                        ${this.data.agentStates.map(agent => `
+                            <div class="agent-card ${agent.status || 'idle'}">
+                                <div class="agent-name">
+                                    ${this.getAgentIcon(agent.agent)} ${this.capitalizeFirst(agent.agent)}
+                                    <span style="color: ${this.getStatusColor(agent.status)};">
+                                        ${this.getStatusIcon(agent.status)}
+                                    </span>
+                                </div>
+                                <div style="font-size: 0.9em; color: #94a3b8; margin-bottom: 8px;">
+                                    ${agent.currentTask ? agent.currentTask.title : 'Aucune tâche'}
+                                </div>
+                                <div style="font-size: 0.8em;">
+                                    <div>Status: ${agent.status || 'idle'}</div>
+                                    <div>Dernière activité: ${this.formatTime(agent.lastActive)}</div>
+                                    ${agent.currentTask ? `<div>Durée tâche: ${agent.currentTask.duration}</div>` : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+            
+            updateMetricsDisplay() {
+                const container = document.getElementById('metricsGrid');
+                if (!container || !this.data.metrics) return;
+                
+                const metrics = this.data.metrics;
+                
+                container.innerHTML = `
+                    <div class="metric-card">
+                        <div class="metric-value">${metrics.totalWorkflows || 0}</div>
+                        <div class="metric-label">Total Workflows</div>
+                        <div class="metric-trend trend-up">+${metrics.completedWorkflows || 0} complétés</div>
+                    </div>
+                    
+                    <div class="metric-card">
+                        <div class="metric-value">${metrics.performance?.successRate || 0}%</div>
+                        <div class="metric-label">Taux de Réussite</div>
+                        <div class="metric-trend ${metrics.performance?.successRate >= 90 ? 'trend-up' : 'trend-down'}">
+                            ${metrics.performance?.successRate >= 90 ? 'Excellent' : 'À améliorer'}
+                        </div>
+                    </div>
+                    
+                    <div class="metric-card">
+                        <div class="metric-value">$${(metrics.totalCost || 0).toFixed(2)}</div>
+                        <div class="metric-label">Coût Total</div>
+                        <div class="metric-trend trend-stable">$${(metrics.avgCostPerWorkflow || 0).toFixed(2)} par workflow</div>
+                    </div>
+                    
+                    <div class="metric-card">
+                        <div class="metric-value">${metrics.activeWorkflows || 0}</div>
+                        <div class="metric-label">Workflows Actifs</div>
+                        <div class="metric-trend trend-stable">En cours d'exécution</div>
+                    </div>
+                    
+                    <div class="metric-card">
+                        <div class="metric-value">$${(metrics.costProjections?.monthly || 0).toFixed(2)}</div>
+                        <div class="metric-label">Projection Mensuelle</div>
+                        <div class="metric-trend ${metrics.costProjections?.monthly > 100 ? 'trend-down' : 'trend-up'}">
+                            ${metrics.costProjections?.monthly > 100 ? 'Budget élevé' : 'Sous budget'}
+                        </div>
+                    </div>
+                    
+                    <div class="metric-card">
+                        <div class="metric-value">${metrics.totalTasks || 0}</div>
+                        <div class="metric-label">Total Tâches</div>
+                        <div class="metric-trend trend-up">${metrics.completedTasks || 0} complétées</div>
+                    </div>
+                `;
+            }
+            
+            updateSystemInfo() {
+                const uptime = document.getElementById('systemUptime');
+                const clients = document.getElementById('connectedClients');
+                
+                if (uptime && this.data.systemInfo) {
+                    uptime.textContent = this.data.systemInfo.uptime || '-';
+                    clients.textContent = this.data.systemInfo.connectedClients || '-';
+                }
+            }
+            
+            updateRecommendations() {
+                const container = document.getElementById('recommendationsContainer');
+                if (!container) return;
+                
+                const recommendations = this.data.metrics?.recommendations || [];
+                
+                if (recommendations.length === 0) {
+                    container.innerHTML = '<div style="color: #94a3b8; font-style: italic;">Aucune recommandation pour le moment</div>';
+                    return;
+                }
+                
+                container.innerHTML = recommendations.map(rec => `
+                    <div class="recommendation-item">
+                        ${rec}
+                    </div>
+                `).join('');
+            }
+            
+            checkAlerts() {
+                if (!this.data.metrics) return;
+                
+                const metrics = this.data.metrics;
+                
+                // Alert pour coût élevé
+                if (metrics.costProjections?.monthly > 100) {
+                    this.showAlert(`Coût mensuel projeté: $${metrics.costProjections.monthly.toFixed(2)} - Dépasse le budget recommandé`);
+                }
+                
+                // Alert pour taux de succès faible
+                if (metrics.performance?.successRate < 80) {
+                    this.showAlert(`Taux de succès faible: ${metrics.performance.successRate}% - Investigation requise`);
+                }
+            }
+            
+            showAlert(message) {
+                const container = document.getElementById('alertsContainer');
+                if (!container) return;
+                
+                // Éviter les doublons
+                if (this.alerts.includes(message)) return;
+                this.alerts.push(message);
+                
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert-banner';
+                alertDiv.innerHTML = `
+                    <span>${message}</span>
+                    <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+                `;
+                
+                container.appendChild(alertDiv);
+                
+                // Auto-remove après 10 secondes
+                setTimeout(() => {
+                    if (alertDiv.parentNode) {
+                        alertDiv.parentNode.removeChild(alertDiv);
+                    }
+                    this.alerts = this.alerts.filter(a => a !== message);
+                }, 10000);
+            }
+            
+            // Utility methods
+            getAgentIcon(agent) {
+                const icons = {
+                    designer: '🎨',
+                    developer: '⚙️',
+                    qa: '🔍'
+                };
+                return icons[agent] || '🤖';
+            }
+            
+            getStatusColor(status) {
+                const colors = {
+                    active: '#10b981',
+                    idle: '#64748b',
+                    waiting: '#f59e0b',
+                    error: '#dc2626'
+                };
+                return colors[status] || '#64748b';
+            }
+            
+            getStatusIcon(status) {
+                const icons = {
+                    active: '●',
+                    idle: '○',
+                    waiting: '⏸',
+                    error: '✕'
+                };
+                return icons[status] || '○';
+            }
+            
+            capitalizeFirst(str) {
+                return str.charAt(0).toUpperCase() + str.slice(1);
+            }
+            
+            formatTime(timeStr) {
+                if (!timeStr || timeStr === 'never') return 'Jamais';
+                try {
+                    return new Date(timeStr).toLocaleTimeString();
+                } catch (e) {
+                    return timeStr;
+                }
+            }
+            
+            setupEventListeners() {
+                // Navigation
+                window.showView = (view) => {
+                    document.querySelectorAll('[id$="-view"]').forEach(el => {
+                        el.style.display = 'none';
+                    });
+                    document.getElementById(view + '-view').style.display = 'block';
+                    
+                    document.querySelectorAll('.nav-item').forEach(el => {
+                        el.classList.remove('active');
+                    });
+                    event.target.closest('.nav-item').classList.add('active');
+                    
+                    this.currentView = view;
+                };
+                
+                // Refresh périodique si déconnecté
+                setInterval(() => {
+                    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+                        this.connect();
+                    } else {
+                        this.requestCurrentState();
+                    }
+                }, 30000); // Toutes les 30 secondes
+            }
+            
+            // Event handlers pour les mises à jour en temps réel
+            handleWorkflowStarted(data) {
+                this.requestCurrentState(); // Refresh complet
+                this.showAlert(`Nouveau workflow démarré: ${data.workflowName || data.workflowId}`);
+            }
+            
+            handleTaskStatusChanged(data) {
+                console.log('Task status changed:', data);
+                this.requestCurrentState(); // Pour simplicité, on refresh tout
+            }
+            
+            handleAgentStatusChanged(data) {
+                console.log('Agent status changed:', data);
+                this.requestCurrentState();
+            }
+            
+            handleWorkflowCompleted(data) {
+                this.showAlert(`Workflow complété: ${data.workflowId}`);
+                this.requestCurrentState();
+            }
+        }
+        
+        // Initialize dashboard when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new MultiAgentDashboard();
+        });
+    </script>
+</body>
+</html>

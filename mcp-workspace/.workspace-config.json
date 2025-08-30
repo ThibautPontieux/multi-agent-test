@@ -1,0 +1,37 @@
+{
+  "mcp-workspace": {
+    "version": "1.0.0",
+    "description": "Workspace centralisé pour la gestion des serveurs MCP",
+    "structure": {
+      "servers": "Serveurs MCP actifs et en développement",
+      "templates": "Templates réutilisables pour nouveaux MCP",
+      "shared": "Code et types partagés",
+      "documentation": "Documentation générée automatiquement",
+      "tools": "Outils de management des MCP",
+      "deployments": "Configurations de déploiement"
+    },
+    "servers": {
+      "multi-agent-mcp": {
+        "status": "production",
+        "version": "1.0.0",
+        "tools": 27,
+        "path": "servers/multi-agent-mcp",
+        "description": "Serveur MCP principal pour coordination multi-agents"
+      }
+    },
+    "planned": {
+      "workspace-manager-mcp": {
+        "status": "planned",
+        "description": "MCP spécialisé dans l'organisation du workspace"
+      },
+      "mcp-manager": {
+        "status": "in-development",
+        "description": "Agent DevOps pour maintenance et évolution des MCP"
+      }
+    },
+    "deployment": {
+      "claude_desktop_config": "deployments/configs/claude_desktop_config.json",
+      "environment": "development"
+    }
+  }
+}
