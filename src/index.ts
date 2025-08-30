@@ -38,6 +38,23 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 // Initialize Git handlers
 const gitHandlers = new GitHandlers(WORKSPACE_DIR);
 
+// Type for tool arguments
+interface ToolArgs {
+  agent?: string;
+  [key: string]: any;
+}
+
+// GitHub PR response type
+interface GitHubPR {
+  html_url: string;
+  number: number;
+}
+
+// GitHub API error type  
+interface GitHubError {
+  message?: string;
+}
+
 /**
  * MCP Server for Multi-Agent AI Development Team
  */
@@ -391,72 +408,73 @@ class MultiAgentMCPServer {
       const { name, arguments: args } = request.params;
 
       try {
-        // Record agent activity for monitoring
-        if (args.agent) {
-          monitoringService.recordAgentActivity(args.agent);
+        // Type guard and record agent activity for monitoring
+        const toolArgs = args as ToolArgs;
+        if (toolArgs && toolArgs.agent && typeof toolArgs.agent === 'string') {
+          monitoringService.recordAgentActivity(toolArgs.agent);
         }
 
         // Route to appropriate handler
         switch (name) {
           // Task Management
           case 'create_task':
-            return this.handleCreateTask(args);
+            return this.handleCreateTask(toolArgs);
           case 'get_my_tasks':
-            return this.handleGetMyTasks(args);
+            return this.handleGetMyTasks(toolArgs);
           case 'update_task_status':
-            return this.handleUpdateTaskStatus(args);
+            return this.handleUpdateTaskStatus(toolArgs);
 
           // File Operations
           case 'write_file':
-            return this.handleWriteFile(args);
+            return this.handleWriteFile(toolArgs);
           case 'read_file':
-            return this.handleReadFile(args);
+            return this.handleReadFile(toolArgs);
 
           // Git Operations
           case 'git_init':
-            return this.handleGitInit(args);
+            return this.handleGitInit(toolArgs);
           case 'git_clone':
-            return this.handleGitClone(args);
+            return this.handleGitClone(toolArgs);
           case 'git_create_branch':
-            return this.handleGitCreateBranch(args);
+            return this.handleGitCreateBranch(toolArgs);
           case 'git_checkout':
-            return this.handleGitCheckout(args);
+            return this.handleGitCheckout(toolArgs);
           case 'git_commit':
-            return this.handleGitCommit(args);
+            return this.handleGitCommit(toolArgs);
           case 'git_push':
-            return this.handleGitPush(args);
+            return this.handleGitPush(toolArgs);
           case 'git_pull':
-            return this.handleGitPull(args);
+            return this.handleGitPull(toolArgs);
           case 'git_fetch':
-            return this.handleGitFetch(args);
+            return this.handleGitFetch(toolArgs);
           case 'git_status':
-            return this.handleGitStatus(args);
+            return this.handleGitStatus(toolArgs);
           case 'git_merge':
-            return this.handleGitMerge(args);
+            return this.handleGitMerge(toolArgs);
           case 'git_list_branches':
-            return this.handleGitListBranches(args);
+            return this.handleGitListBranches(toolArgs);
 
           // GitHub Integration
           case 'github_create_pr':
-            return this.handleGitHubCreatePR(args);
+            return this.handleGitHubCreatePR(toolArgs);
 
           // Workflow Management
           case 'start_workflow':
-            return this.handleStartWorkflow(args);
+            return this.handleStartWorkflow(toolArgs);
           case 'get_workflows':
-            return this.handleGetWorkflows(args);
+            return this.handleGetWorkflows(toolArgs);
           case 'execute_workflow_step':
-            return this.handleExecuteWorkflowStep(args);
+            return this.handleExecuteWorkflowStep(toolArgs);
 
           // Monitoring and Communication
           case 'trigger_agent':
-            return this.handleTriggerAgent(args);
+            return this.handleTriggerAgent(toolArgs);
           case 'get_pending_agents':
-            return this.handleGetPendingAgents(args);
+            return this.handleGetPendingAgents(toolArgs);
           case 'log_message':
-            return this.handleLogMessage(args);
+            return this.handleLogMessage(toolArgs);
           case 'get_conversation_log':
-            return this.handleGetConversationLog(args);
+            return this.handleGetConversationLog(toolArgs);
 
           default:
             throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
@@ -469,7 +487,7 @@ class MultiAgentMCPServer {
   }
 
   // Task Management Handlers
-  private async handleCreateTask(args: any) {
+  private async handleCreateTask(args: ToolArgs) {
     const task = taskService.createTask(args);
     return {
       content: [
@@ -481,8 +499,8 @@ class MultiAgentMCPServer {
     };
   }
 
-  private async handleGetMyTasks(args: any) {
-    const result = taskService.getAgentTasks(args.agent);
+  private async handleGetMyTasks(args: ToolArgs) {
+    const result = taskService.getAgentTasks(args.agent!);
     return {
       content: [
         {
@@ -493,8 +511,8 @@ class MultiAgentMCPServer {
     };
   }
 
-  private async handleUpdateTaskStatus(args: any) {
-    const task = taskService.updateTaskStatus(args.taskId, args.status, args.agent);
+  private async handleUpdateTaskStatus(args: ToolArgs) {
+    const task = taskService.updateTaskStatus(args.taskId, args.status, args.agent!);
     
     if (!task) {
       throw new McpError(ErrorCode.InvalidRequest, 'Task not found or access denied');
@@ -526,7 +544,7 @@ class MultiAgentMCPServer {
   }
 
   // File Operation Handlers
-  private async handleWriteFile(args: any) {
+  private async handleWriteFile(args: ToolArgs) {
     const filePath = join(WORKSPACE_DIR, args.path);
     const dir = dirname(filePath);
 
@@ -534,7 +552,7 @@ class MultiAgentMCPServer {
     await mkdir(dir, { recursive: true });
 
     await writeFile(filePath, args.content, 'utf8');
-    logService.info(args.agent, `File written: ${args.path}`);
+    logService.info(args.agent!, `File written: ${args.path}`);
 
     return {
       content: [
@@ -546,7 +564,7 @@ class MultiAgentMCPServer {
     };
   }
 
-  private async handleReadFile(args: any) {
+  private async handleReadFile(args: ToolArgs) {
     const filePath = join(WORKSPACE_DIR, args.path);
 
     if (!existsSync(filePath)) {
@@ -566,7 +584,7 @@ class MultiAgentMCPServer {
   }
 
   // Git Operation Handlers
-  private async handleGitInit(args: any) {
+  private async handleGitInit(args: ToolArgs) {
     const result = gitHandlers.gitInit();
     
     return {
@@ -579,7 +597,7 @@ class MultiAgentMCPServer {
     };
   }
 
-  private async handleGitClone(args: any) {
+  private async handleGitClone(args: ToolArgs) {
     const result = gitHandlers.gitClone(args.url, args.projectName);
     
     return {
@@ -592,7 +610,7 @@ class MultiAgentMCPServer {
     };
   }
 
-  private async handleGitCreateBranch(args: any) {
+  private async handleGitCreateBranch(args: ToolArgs) {
     const result = gitHandlers.gitCreateBranch(args.branchName, args.projectPath);
     
     return {
@@ -605,7 +623,7 @@ class MultiAgentMCPServer {
     };
   }
 
-  private async handleGitCheckout(args: any) {
+  private async handleGitCheckout(args: ToolArgs) {
     const result = gitHandlers.gitCheckout(args.branchName, args.projectPath);
     
     return {
@@ -618,7 +636,7 @@ class MultiAgentMCPServer {
     };
   }
 
-  private async handleGitCommit(args: any) {
+  private async handleGitCommit(args: ToolArgs) {
     const result = gitHandlers.gitCommit(args.message, args.projectPath);
     
     return {
@@ -631,7 +649,7 @@ class MultiAgentMCPServer {
     };
   }
 
-  private async handleGitPush(args: any) {
+  private async handleGitPush(args: ToolArgs) {
     const result = gitHandlers.gitPush(args.branch, args.projectPath);
     
     return {
@@ -644,7 +662,7 @@ class MultiAgentMCPServer {
     };
   }
 
-  private async handleGitPull(args: any) {
+  private async handleGitPull(args: ToolArgs) {
     const result = gitHandlers.gitPull(args.branch, args.projectPath);
     
     return {
@@ -657,7 +675,7 @@ class MultiAgentMCPServer {
     };
   }
 
-  private async handleGitFetch(args: any) {
+  private async handleGitFetch(args: ToolArgs) {
     const result = gitHandlers.gitFetch(args.projectPath);
     
     return {
@@ -670,7 +688,7 @@ class MultiAgentMCPServer {
     };
   }
 
-  private async handleGitStatus(args: any) {
+  private async handleGitStatus(args: ToolArgs) {
     const result = gitHandlers.gitStatus(args.projectPath);
     
     return {
@@ -683,7 +701,7 @@ class MultiAgentMCPServer {
     };
   }
 
-  private async handleGitMerge(args: any) {
+  private async handleGitMerge(args: ToolArgs) {
     const result = gitHandlers.gitMerge(args.sourceBranch, args.projectPath);
     
     return {
@@ -696,7 +714,7 @@ class MultiAgentMCPServer {
     };
   }
 
-  private async handleGitListBranches(args: any) {
+  private async handleGitListBranches(args: ToolArgs) {
     const result = gitHandlers.gitListBranches(args.includeRemote, args.projectPath);
     
     return {
@@ -710,7 +728,7 @@ class MultiAgentMCPServer {
   }
 
   // GitHub Integration Handlers
-  private async handleGitHubCreatePR(args: any) {
+  private async handleGitHubCreatePR(args: ToolArgs) {
     if (!GITHUB_TOKEN) {
       throw new McpError(ErrorCode.InvalidRequest, 'GitHub token not configured');
     }
@@ -749,12 +767,12 @@ class MultiAgentMCPServer {
       });
 
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as GitHubError;
         throw new Error(`GitHub API error: ${error.message || response.statusText}`);
       }
 
-      const pr = await response.json();
-      logService.info(args.agent, `Pull request created: ${pr.html_url}`, { prNumber: pr.number });
+      const pr = await response.json() as GitHubPR;
+      logService.info(args.agent!, `Pull request created: ${pr.html_url}`, { prNumber: pr.number });
 
       return {
         content: [
@@ -765,18 +783,18 @@ class MultiAgentMCPServer {
         ]
       };
     } catch (error: any) {
-      logService.error(args.agent, 'Failed to create GitHub PR', error);
+      logService.error(args.agent!, 'Failed to create GitHub PR', error);
       throw new McpError(ErrorCode.InternalError, `GitHub PR creation failed: ${error.message}`);
     }
   }
 
   // Workflow Management Handlers
-  private async handleStartWorkflow(args: any) {
+  private async handleStartWorkflow(args: ToolArgs) {
     const workflow = workflowService.startWorkflow(
       args.workflowType,
       args.projectName,
       args.description || `${args.workflowType} workflow for ${args.projectName}`,
-      args.agent
+      args.agent!
     );
 
     return {
@@ -789,7 +807,7 @@ class MultiAgentMCPServer {
     };
   }
 
-  private async handleGetWorkflows(args: any) {
+  private async handleGetWorkflows(args: ToolArgs) {
     const workflows = workflowService.getAllWorkflows();
     
     return {
@@ -802,7 +820,7 @@ class MultiAgentMCPServer {
     };
   }
 
-  private async handleExecuteWorkflowStep(args: any) {
+  private async handleExecuteWorkflowStep(args: ToolArgs) {
     const result = workflowService.executeWorkflowStep(args.workflowId);
     
     return {
@@ -816,9 +834,9 @@ class MultiAgentMCPServer {
   }
 
   // Monitoring and Communication Handlers
-  private async handleTriggerAgent(args: any) {
+  private async handleTriggerAgent(args: ToolArgs) {
     const task = taskService.createTask({
-      from: args.agent,
+      from: args.agent!,
       to: args.targetAgent,
       type: 'workflow_trigger',
       title: '🔔 Agent Activation',
@@ -840,7 +858,7 @@ class MultiAgentMCPServer {
     };
   }
 
-  private async handleGetPendingAgents(args: any) {
+  private async handleGetPendingAgents(args: ToolArgs) {
     const agents = monitoringService.getAgentsWithPendingWork();
     
     return {
@@ -853,8 +871,8 @@ class MultiAgentMCPServer {
     };
   }
 
-  private async handleLogMessage(args: any) {
-    logService.info(args.agent, args.message);
+  private async handleLogMessage(args: ToolArgs) {
+    logService.info(args.agent!, args.message);
     
     return {
       content: [
@@ -866,7 +884,7 @@ class MultiAgentMCPServer {
     };
   }
 
-  private async handleGetConversationLog(args: any) {
+  private async handleGetConversationLog(args: ToolArgs) {
     const logs = logService.getRecentLogs(args.limit || 10);
     
     return {

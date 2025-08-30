@@ -117,7 +117,7 @@ export class GitHandlers {
     }
 
     try {
-      const lines = result.data.split('\n').filter(line => line.trim());
+      const lines = result.data.split('\n').filter((line: string) => line.trim());
       const branchLine = lines[0] || '';
       
       // Parse branch info
@@ -146,7 +146,7 @@ export class GitHandlers {
       const unstaged: string[] = [];
       const untracked: string[] = [];
 
-      lines.slice(1).forEach(line => {
+      lines.slice(1).forEach((line: string) => {
         const status = line.substring(0, 2);
         const file = line.substring(3);
 
@@ -319,7 +319,7 @@ export class GitHandlers {
     const result = this.executeGitCommand('diff --name-only --diff-filter=U', projectPath);
     
     if (result.success && result.data) {
-      return result.data.split('\n').filter(file => file.trim());
+      return result.data.split('\n').filter((file: string) => file.trim());
     }
 
     return [];
@@ -339,9 +339,9 @@ export class GitHandlers {
     try {
       const branches: GitBranch[] = result.data
         .split('\n')
-        .map(line => line.trim())
-        .filter(line => line && !line.startsWith('remotes/origin/HEAD'))
-        .map(line => {
+        .map((line: string) => line.trim())
+        .filter((line: string) => line && !line.startsWith('remotes/origin/HEAD'))
+        .map((line: string) => {
           const current = line.startsWith('*');
           const name = line.replace('*', '').trim();
           const remote = name.startsWith('remotes/origin/') ? name.replace('remotes/origin/', '') : undefined;
